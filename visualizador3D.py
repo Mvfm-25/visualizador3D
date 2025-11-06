@@ -61,7 +61,7 @@ def redimensionar(w, h):
     glViewport(0, 0, w, h)
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(45, w / float(h), 0.1, 50.0)
+    gluPerspective(45, w / float(h), 0.1, 1000.0)
     glMatrixMode(GL_MODELVIEW)
 
 def inicializar():
