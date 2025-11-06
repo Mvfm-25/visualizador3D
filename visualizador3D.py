@@ -35,6 +35,9 @@ def desenhar_objeto():
             glVertex3fv(vertices[vert_idx])
     glEnd()
 
+# Coordenadas da câmera. Para melhor modificação no teclado depois.
+cameraPos = [0.0, 5.0, 5.0]
+
 def display():
     """Função principal de desenho."""
     global rotation
@@ -42,7 +45,7 @@ def display():
     glLoadIdentity()
 
     # Posicionamento da câmera
-    gluLookAt(0, 5, 5,   # posição da câmera
+    gluLookAt(cameraPos[0], cameraPos[1], cameraPos[2],   # posição da câmera
               0, 0, 0,   # para onde olha
               0, 1, 0)   # vetor 'up'
 
@@ -77,6 +80,18 @@ def teclado(key, x, y):
         else:
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
 
+def special_keys(key, x, y):
+    global cameraPos
+    step = 0.3
+    if key == GLUT_KEY_UP:
+        cameraPos[2] -= step
+    elif key == GLUT_KEY_DOWN:
+        cameraPos[2] += step
+    elif key == GLUT_KEY_LEFT:
+        cameraPos[0] -= step
+    elif key == GLUT_KEY_RIGHT:
+        cameraPos[0] += step
+    glutPostRedisplay()
 
 def main():
     if len(sys.argv) < 2:
@@ -96,6 +111,7 @@ def main():
     glutIdleFunc(display)
     glutReshapeFunc(redimensionar)
     glutKeyboardFunc(teclado)
+    glutSpecialFunc(special_keys)
     glutMainLoop()
 
 if __name__ == "__main__":
