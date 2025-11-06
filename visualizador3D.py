@@ -37,6 +37,7 @@ def desenhar_objeto():
 
 # Coordenadas da câmera. Para melhor modificação no teclado depois.
 cameraPos = [0.0, 5.0, 5.0]
+altVisao = 0
 
 def display():
     """Função principal de desenho."""
@@ -46,7 +47,7 @@ def display():
 
     # Posicionamento da câmera
     gluLookAt(cameraPos[0], cameraPos[1], cameraPos[2],   # posição da câmera
-              0, 0, 0,   # para onde olha
+              0, altVisao, 0,   # para onde olha
               0, 1, 0)   # vetor 'up'
 
     glRotatef(rotation, 0, 1, 0)
@@ -71,7 +72,14 @@ def inicializar():
 
 # alterna entre sólido / wireframe / pontos
 def teclado(key, x, y):
-    if key == b'w':
+    global cameraPos
+    step = 0.3
+
+    if key == b'q':
+        cameraPos[1] += step
+    elif key == b'e':
+        cameraPos[1] -= step
+    elif key == b'w':
         modo = glGetIntegerv(GL_POLYGON_MODE)[0]
         if modo == GL_FILL:
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
@@ -82,15 +90,16 @@ def teclado(key, x, y):
 
 def special_keys(key, x, y):
     global cameraPos
+    global altVisao
     step = 0.3
     if key == GLUT_KEY_UP:
         cameraPos[2] -= step
     elif key == GLUT_KEY_DOWN:
         cameraPos[2] += step
     elif key == GLUT_KEY_LEFT:
-        cameraPos[0] -= step
+        altVisao -= step
     elif key == GLUT_KEY_RIGHT:
-        cameraPos[0] += step
+        altVisao += step
     glutPostRedisplay()
 
 def main():
