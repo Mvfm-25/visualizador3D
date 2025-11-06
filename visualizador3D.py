@@ -42,7 +42,7 @@ def display():
     glLoadIdentity()
 
     # Posicionamento da câmera
-    gluLookAt(0, 0, 10,   # posição da câmera
+    gluLookAt(0, 5, 5,   # posição da câmera
               0, 0, 0,   # para onde olha
               0, 1, 0)   # vetor 'up'
 
@@ -66,9 +66,17 @@ def inicializar():
     glShadeModel(GL_SMOOTH)
     glClearColor(0.1, 0.1, 0.1, 1.0)
 
-    """ Modo Wireframe pra referência """
-    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-    glColor3f(1.0, 1.0, 1.0)
+# alterna entre sólido / wireframe / pontos
+def teclado(key, x, y):
+    if key == b'w':
+        modo = glGetIntegerv(GL_POLYGON_MODE)[0]
+        if modo == GL_FILL:
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+        elif modo == GL_LINE:
+            glPolygonMode(GL_FRONT_AND_BACK, GL_POINT)
+        else:
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+
 
 def main():
     if len(sys.argv) < 2:
@@ -78,7 +86,7 @@ def main():
     caminho_obj = sys.argv[1]
     carregar_objeto(caminho_obj)
 
-    glutInit(sys.argv)  # ✅ precisa disso!
+    glutInit(sys.argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH)
     glutInitWindowSize(window_width, window_height)
     glutCreateWindow(b"Visualizador .OBJ [mvfm]")
@@ -87,6 +95,7 @@ def main():
     glutDisplayFunc(display)
     glutIdleFunc(display)
     glutReshapeFunc(redimensionar)
+    glutKeyboardFunc(teclado)
     glutMainLoop()
 
 if __name__ == "__main__":
