@@ -6,6 +6,7 @@
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
+
 import sys
 
 # Variáveis globais
@@ -28,6 +29,12 @@ def carregar_objeto(caminho):
                 faces.append(face)
 
 def desenhar_objeto():
+    # Teste para ver que modo de renderização foi escolhido, pintando de acordo.
+    modo = glGetIntegerv(GL_POLYGON_MODE)[0]
+    if modo == GL_FILL:
+        glColor3f(1.0, 1.0, 1.0) # Modelos sólidos pintados como branco.
+    else :
+        glColor3f(0.0, 1.0, 0.0) # Modo pontos & Modo wireframe, pintados de verde.
     """Renderiza o modelo carregado."""
     glBegin(GL_TRIANGLES)
     for face in faces:
@@ -38,6 +45,30 @@ def desenhar_objeto():
 # Coordenadas da câmera. Para melhor modificação no teclado depois.
 cameraPos = [0.0, 5.0, 5.0]
 altVisao = 0
+
+# Função para renderizar texto na tela.
+def desenhaTexto(x, y, texto, r=0.0, g=1.0, b=1.0):
+
+    #indo temporariamente para projeção 2D e rapidamente voltando.
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    gluOrtho2D(0, window_width, 0, window_height)
+
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+
+    glColor3f(r, g, b)
+    glRasterPos2f(x,y)
+
+    for c in texto :
+        glutBitmapCharacter(GLUT_BITMAP_8_BY_13, ord(c))
+
+    glPopMatrix()
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
 
 def display():
     """Função principal de desenho."""
@@ -55,6 +86,15 @@ def display():
 
     rotation += 0.3
     glutSwapBuffers()
+
+    # Chamando texto para ser printado no canto inferior esquerdo da tela.
+    numFaces = len(faces)
+    numVert = len(vertices)
+
+    texto = f"Vértices : {numVert} | Polígonos : {numFaces}"
+    desenhaTexto(10, 10, texto, 0.0, 1.0, 0.0)
+    glutSwapBuffers()
+
 
 def redimensionar(w, h):
     if h == 0:
