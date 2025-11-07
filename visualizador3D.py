@@ -8,39 +8,82 @@ from OpenGL.GLUT import *
 from OpenGL.GLU import *
 
 import sys
+import numpy as np
 
 # Variáveis globais
 window_width, window_height = 800, 600
 rotation = 0.0
+
 vertices = []
 faces = []
+normais = []
 
 def carregar_objeto(caminho):
-    """Lê um arquivo .obj e extrai vértices e faces simples (sem materiais/texturas)."""
-    global vertices, faces
+    """Lê um arquivo .obj e extrai vértices, normais e faces simples."""
+    global vertices, faces, normais
+    vertices.clear()
+    faces.clear()
+    normais.clear()
+
     with open(caminho, 'r') as f:
         for linha in f:
             if linha.startswith('v '):  # vértice
                 _, x, y, z = linha.strip().split()
                 vertices.append((float(x), float(y), float(z)))
+            elif linha.startswith('vn '):  # normal
+                _, x, y, z = linha.strip().split()
+                normais.append((float(x), float(y), float(z)))
             elif linha.startswith('f '):  # face
                 partes = linha.strip().split()[1:]
-                face = [int(p.split('/')[0]) - 1 for p in partes]
-                faces.append(face)
+                face_vertices = []
+                face_normais = []
+                for p in partes:
+                    dados = p.split('/')
+                    v_idx = int(dados[0]) - 1
+                    face_vertices.append(v_idx)
+
+                    # verifica se há normal associada
+                    if len(dados) >= 3 and dados[2] != '':
+                        n_idx = int(dados[2]) - 1
+                        face_normais.append(n_idx)
+                    else:
+                        face_normais.append(None)
+
+                faces.append((face_vertices, face_normais))
+
+def normal_face(v1, v2, v3):
+    """Calcula a normal de uma face a partir de 3 vértices."""
+    u = np.subtract(v2, v1)
+    v = np.subtract(v3, v1)
+    n = np.cross(u, v)
+    norma = np.linalg.norm(n)
+    if norma == 0:
+        return (0.0, 0.0, 1.0)
+    return n / norma
 
 def desenhar_objeto():
-    # Teste para ver que modo de renderização foi escolhido, pintando de acordo.
+    """Renderiza o modelo carregado, com suporte a normais por face ou por vértice."""
     modo = glGetIntegerv(GL_POLYGON_MODE)[0]
     if modo == GL_FILL:
-        glColor3f(1.0, 1.0, 1.0) # Modelos sólidos pintados como branco.
-    else :
-        glColor3f(0.0, 1.0, 0.0) # Modo pontos & Modo wireframe, pintados de verde.
-    """Renderiza o modelo carregado."""
+        glColor3f(1.0, 1.0, 1.0)
+    else:
+        glColor3f(0.0, 1.0, 0.0)
+
     glBegin(GL_TRIANGLES)
-    for face in faces:
-        for vert_idx in face:
-            glVertex3fv(vertices[vert_idx])
+    for face_vertices, face_normais in faces:
+        v1, v2, v3 = [vertices[i] for i in face_vertices[:3]]
+
+        # Se o modelo não tiver normais, calcula a normal da face
+        if all(n is None for n in face_normais):
+            n = normal_face(v1, v2, v3)
+            glNormal3fv(n)
+
+        for v_idx, n_idx in zip(face_vertices, face_normais):
+            if n_idx is not None and n_idx < len(normais):
+                glNormal3fv(normais[n_idx])
+            glVertex3fv(vertices[v_idx])
     glEnd()
+
 
 # Coordenadas da câmera. Para melhor modificação no teclado depois.
 cameraPos = [0.0, 5.0, 5.0]
@@ -90,13 +133,16 @@ def display():
               0, altVisao, 0,   # para onde olha
               0, 1, 0)   # vetor 'up'
 
+    # Para luz não se mover junto com o modelo.
+    luzPosicao = [0.0, 10.0, 10.0, 1.0]
+    glLightfv(GL_LIGHT0, GL_POSITION, luzPosicao)
+
+    # Só depois disso gira o modelo.
     glRotatef(rotation, 0, 1, 0)
     desenhar_objeto()
 
-    modo = glGetIntegerv(GL_POLYGON_MODE)[0]
-    if modo == GL_FILL:
-        glEnable(GL_LIGHTING)
-    else:
+    lighting_enabled = glIsEnabled(GL_LIGHTING)
+    if lighting_enabled:
         glDisable(GL_LIGHTING)
 
     rotation += 0.3
@@ -107,6 +153,10 @@ def display():
 
     texto = f"Vértices : {numVert} | Polígonos : {numFaces}"
     desenhaTexto(10, 10, texto, 0.0, 1.0, 0.0)
+
+    if lighting_enabled:
+        glEnable(GL_LIGHTING)
+
     glutSwapBuffers()
 
 
@@ -121,6 +171,8 @@ def redimensionar(w, h):
 
 def inicializar():
     glEnable(GL_DEPTH_TEST)
+    # Tratamento de normais
+    glEnable(GL_NORMALIZE)
     glShadeModel(GL_SMOOTH)
     glClearColor(0.1, 0.1, 0.1, 1.0)
 
@@ -135,7 +187,6 @@ def inicializar():
 
     glLightfv(GL_LIGHT0, GL_DIFFUSE, luzDifusa)
     glLightfv(GL_LIGHT0, GL_AMBIENT, luzAmbiente)
-    glLightfv(GL_LIGHT0, GL_POSITION, luzPosicao)
 
     # Definição de material do modelo.
     matDifusa = [1.0, 1.0, 1.0, 1.0]
