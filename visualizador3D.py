@@ -49,6 +49,11 @@ altVisao = 0
 # Função para renderizar texto na tela.
 def desenhaTexto(x, y, texto, r=0.0, g=1.0, b=1.0):
 
+    # Desabilita profundidade só pro texto
+    depth_enabled = glIsEnabled(GL_DEPTH_TEST)
+    if depth_enabled:
+        glDisable(GL_DEPTH_TEST)
+
     #indo temporariamente para projeção 2D e rapidamente voltando.
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
@@ -70,6 +75,10 @@ def desenhaTexto(x, y, texto, r=0.0, g=1.0, b=1.0):
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
 
+    # Reativa profundidade se estava ativa
+    if depth_enabled:
+        glEnable(GL_DEPTH_TEST)
+
 def display():
     """Função principal de desenho."""
     global rotation
@@ -85,7 +94,6 @@ def display():
     desenhar_objeto()
 
     rotation += 0.3
-    glutSwapBuffers()
 
     # Chamando texto para ser printado no canto inferior esquerdo da tela.
     numFaces = len(faces)
