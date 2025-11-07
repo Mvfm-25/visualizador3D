@@ -93,6 +93,12 @@ def display():
     glRotatef(rotation, 0, 1, 0)
     desenhar_objeto()
 
+    modo = glGetIntegerv(GL_POLYGON_MODE)[0]
+    if modo == GL_FILL:
+        glEnable(GL_LIGHTING)
+    else:
+        glDisable(GL_LIGHTING)
+
     rotation += 0.3
 
     # Chamando texto para ser printado no canto inferior esquerdo da tela.
@@ -117,6 +123,28 @@ def inicializar():
     glEnable(GL_DEPTH_TEST)
     glShadeModel(GL_SMOOTH)
     glClearColor(0.1, 0.1, 0.1, 1.0)
+
+    # Iluminação simples
+    glEnable(GL_LIGHTING)   # Habilita sistema de iluminação
+    glEnable(GL_LIGHT0)     # 'Liga' a luz.
+
+    # Definindo cor da luz. Neste caso, branco.
+    luzDifusa = [1.0, 1.0, 1.0, 1.0]
+    luzAmbiente = [0.2, 0.2, 0.2, 1.0]
+    luzPosicao = [0.0, 10.0, 10.0, 1.0]  # Posição acima e um pouco à frente do modelo
+
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, luzDifusa)
+    glLightfv(GL_LIGHT0, GL_AMBIENT, luzAmbiente)
+    glLightfv(GL_LIGHT0, GL_POSITION, luzPosicao)
+
+    # Definição de material do modelo.
+    matDifusa = [1.0, 1.0, 1.0, 1.0]
+    matSpecular = [1.0, 1.0, 1.0, 1.0]
+    matShininess = [50.0]
+
+    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, matDifusa)
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, matSpecular)
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, matShininess)
 
 # alterna entre sólido / wireframe / pontos
 def teclado(key, x, y):
