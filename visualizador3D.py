@@ -1,116 +1,139 @@
-# visualizador_obj.py
-# [mvfm] - Esboço simples para visualização de modelos .OBJ com PyOpenGL
-
-# Criado : 05/11/2025  || Última vez Alterado : 06/11/2025
+# visualizadorObj.py
+# [mvfm] - Visualizador simples de modelos .OBJ com PyOpenGL
+#
+# Criado : 05/11/2025  || Última vez Alterado : 08/11/2025
 
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
-
 import sys
 import numpy as np
 
 # Variáveis globais
-window_width, window_height = 800, 600
+windowWidth, windowHeight = 800, 600
 rotation = 0.0
 
 vertices = []
 faces = []
 normais = []
 
-def carregar_objeto(caminho):
-    """Lê um arquivo .obj e extrai vértices, normais e faces simples."""
-    global vertices, faces, normais
+mostrarNormais = False  # alterna com tecla 'n'
+
+# Cache de normais calculadas (para evitar recálculo a cada frame)
+normaisFaceCache = []
+
+# Leitura do arquivo .OBJ
+def carregarObjeto(caminho):
+    """Lê um arquivo .OBJ e extrai vértices, normais e faces."""
+    global vertices, faces, normais, normaisFaceCache
     vertices.clear()
     faces.clear()
     normais.clear()
+    normaisFaceCache.clear()
 
     with open(caminho, 'r') as f:
         for linha in f:
-            if linha.startswith('v '):  # vértice
+            if linha.startswith('v '):
                 _, x, y, z = linha.strip().split()
                 vertices.append((float(x), float(y), float(z)))
-            elif linha.startswith('vn '):  # normal
+            elif linha.startswith('vn '):
                 _, x, y, z = linha.strip().split()
                 normais.append((float(x), float(y), float(z)))
-            elif linha.startswith('f '):  # face
+            elif linha.startswith('f '):
                 partes = linha.strip().split()[1:]
-                face_vertices = []
-                face_normais = []
+                faceVertices, faceNormais = [], []
                 for p in partes:
                     dados = p.split('/')
-                    v_idx = int(dados[0]) - 1
-                    face_vertices.append(v_idx)
-
-                    # verifica se há normal associada
-                    if len(dados) >= 3 and dados[2] != '':
-                        n_idx = int(dados[2]) - 1
-                        face_normais.append(n_idx)
+                    vIdx = int(dados[0]) - 1
+                    faceVertices.append(vIdx)
+                    if len(dados) >= 3 and dados[2]:
+                        nIdx = int(dados[2]) - 1
+                        faceNormais.append(nIdx)
                     else:
-                        face_normais.append(None)
+                        faceNormais.append(None)
+                faces.append((faceVertices, faceNormais))
 
-                faces.append((face_vertices, face_normais))
+    # Pré-calcula as normais das faces que não possuem normais próprias
+    for faceVertices, faceNormais in faces:
+        if not any(n is not None for n in faceNormais):
+            v1, v2, v3 = [np.array(vertices[i]) for i in faceVertices[:3]]
+            normaisFaceCache.append(normalFace(v1, v2, v3))
+        else:
+            normaisFaceCache.append(None)
 
-def normal_face(v1, v2, v3):
+# Cálculo de normais
+def normalFace(v1, v2, v3):
     """Calcula a normal de uma face a partir de 3 vértices."""
-    u = np.subtract(v2, v1)
-    v = np.subtract(v3, v1)
+    u = v2 - v1
+    v = v3 - v1
     n = np.cross(u, v)
     norma = np.linalg.norm(n)
-    if norma == 0:
-        return (0.0, 0.0, 1.0)
-    return n / norma
+    return (n / norma) if norma != 0 else np.array((0.0, 0.0, 1.0))
 
-def desenhar_objeto():
-    """Renderiza o modelo carregado, com suporte a normais por face ou por vértice."""
+# Renderização do modelo
+def desenharObjeto():
+    """Renderiza o modelo carregado, usando normais por face ou vértice."""
     modo = glGetIntegerv(GL_POLYGON_MODE)[0]
+
     if modo == GL_FILL:
+        glEnable(GL_LIGHTING)
         glColor3f(1.0, 1.0, 1.0)
     else:
+        glDisable(GL_LIGHTING)
         glColor3f(0.0, 1.0, 0.0)
 
     glBegin(GL_TRIANGLES)
-    for face_vertices, face_normais in faces:
-        v1, v2, v3 = [vertices[i] for i in face_vertices[:3]]
+    for (faceVertices, faceNormais), normalCache in zip(faces, normaisFaceCache):
+        temNormais = any(n is not None for n in faceNormais)
 
-        # Se o modelo não tiver normais, calcula a normal da face
-        if all(n is None for n in face_normais):
-            n = normal_face(v1, v2, v3)
-            glNormal3fv(n)
+        # Usa a normal da cache se não houver normal associada
+        if not temNormais and normalCache is not None:
+            glNormal3fv(normalCache)
 
-        for v_idx, n_idx in zip(face_vertices, face_normais):
-            if n_idx is not None and n_idx < len(normais):
-                glNormal3fv(normais[n_idx])
-            glVertex3fv(vertices[v_idx])
+        for vIdx, nIdx in zip(faceVertices, faceNormais):
+            if temNormais and nIdx is not None and nIdx < len(normais):
+                glNormal3fv(normais[nIdx])
+            glVertex3fv(vertices[vIdx])
     glEnd()
 
+    # Desenho opcional das normais
+    if mostrarNormais:
+        glDisable(GL_LIGHTING)
+        glColor3f(0.0, 0.3, 1.0)
+        glBegin(GL_LINES)
+        for (faceVertices, faceNormais), normalCache in zip(faces, normaisFaceCache):
+            for vIdx, nIdx in zip(faceVertices, faceNormais):
+                v = np.array(vertices[vIdx])
+                if nIdx is not None and nIdx < len(normais):
+                    n = np.array(normais[nIdx])
+                elif normalCache is not None:
+                    n = normalCache
+                else:
+                    v1, v2, v3 = [np.array(vertices[i]) for i in faceVertices[:3]]
+                    n = normalFace(v1, v2, v3)
+                glVertex3fv(v)
+                glVertex3fv(v + n * 0.2)
+        glEnd()
+        glEnable(GL_LIGHTING)
 
-# Coordenadas da câmera. Para melhor modificação no teclado depois.
-cameraPos = [0.0, 5.0, 5.0]
-altVisao = 0
-
-# Função para renderizar texto na tela.
+# HUD
 def desenhaTexto(x, y, texto, r=0.0, g=1.0, b=1.0):
-
-    # Desabilita profundidade só pro texto
-    depth_enabled = glIsEnabled(GL_DEPTH_TEST)
-    if depth_enabled:
+    depthEnabled = glIsEnabled(GL_DEPTH_TEST)
+    if depthEnabled:
         glDisable(GL_DEPTH_TEST)
 
-    #indo temporariamente para projeção 2D e rapidamente voltando.
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
     glLoadIdentity()
-    gluOrtho2D(0, window_width, 0, window_height)
+    gluOrtho2D(0, windowWidth, 0, windowHeight)
 
     glMatrixMode(GL_MODELVIEW)
     glPushMatrix()
     glLoadIdentity()
 
     glColor3f(r, g, b)
-    glRasterPos2f(x,y)
-
-    for c in texto :
+    glRasterPos2f(x, y)
+    for c in texto:
         glutBitmapCharacter(GLUT_BITMAP_8_BY_13, ord(c))
 
     glPopMatrix()
@@ -118,88 +141,73 @@ def desenhaTexto(x, y, texto, r=0.0, g=1.0, b=1.0):
     glPopMatrix()
     glMatrixMode(GL_MODELVIEW)
 
-    # Reativa profundidade se estava ativa
-    if depth_enabled:
+    if depthEnabled:
         glEnable(GL_DEPTH_TEST)
 
+# Câmera e exibição
+cameraPos = [0.0, 5.0, 5.0]
+altVisao = 0.0
+
 def display():
-    """Função principal de desenho."""
     global rotation
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
 
-    # Posicionamento da câmera
-    gluLookAt(cameraPos[0], cameraPos[1], cameraPos[2],   # posição da câmera
-              0, altVisao, 0,   # para onde olha
-              0, 1, 0)   # vetor 'up'
+    gluLookAt(cameraPos[0], cameraPos[1], cameraPos[2],
+              0, altVisao, 0,
+              0, 1, 0)
 
-    # Para luz não se mover junto com o modelo.
-    luzPosicao = [0.0, 10.0, 10.0, 1.0]
-    glLightfv(GL_LIGHT0, GL_POSITION, luzPosicao)
+    glLightfv(GL_LIGHT0, GL_POSITION, [0.0, 10.0, 10.0, 1.0])
 
-    # Só depois disso gira o modelo.
     glRotatef(rotation, 0, 1, 0)
-    desenhar_objeto()
+    desenharObjeto()
+    rotation = (rotation + 0.3) % 360
 
-    lighting_enabled = glIsEnabled(GL_LIGHTING)
-    if lighting_enabled:
-        glDisable(GL_LIGHTING)
-
-    rotation += 0.3
-
-    # Chamando texto para ser printado no canto inferior esquerdo da tela.
-    numFaces = len(faces)
-    numVert = len(vertices)
-
-    texto = f"Vértices : {numVert} | Polígonos : {numFaces}"
-    desenhaTexto(10, 10, texto, 0.0, 1.0, 0.0)
-
-    if lighting_enabled:
-        glEnable(GL_LIGHTING)
+    glDisable(GL_LIGHTING)
+    desenhaTexto(10, 10, f"Vértices: {len(vertices)} | Polígonos: {len(faces)}", 0.0, 1.0, 0.0)
+    glEnable(GL_LIGHTING)
 
     glutSwapBuffers()
 
-
 def redimensionar(w, h):
-    if h == 0:
-        h = 1
+    h = max(h, 1)
     glViewport(0, 0, w, h)
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
     gluPerspective(45, w / float(h), 0.1, 1000.0)
     glMatrixMode(GL_MODELVIEW)
 
+# Inicialização
 def inicializar():
     glEnable(GL_DEPTH_TEST)
-    # Tratamento de normais
     glEnable(GL_NORMALIZE)
     glShadeModel(GL_SMOOTH)
-    glClearColor(0.1, 0.1, 0.1, 1.0)
+    glClearColor(0.05, 0.05, 0.05, 1.0)
 
-    # Iluminação simples
-    glEnable(GL_LIGHTING)   # Habilita sistema de iluminação
-    glEnable(GL_LIGHT0)     # 'Liga' a luz.
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
 
-    # Definindo cor da luz. Neste caso, branco.
-    luzDifusa = [1.0, 1.0, 1.0, 1.0]
-    luzAmbiente = [0.2, 0.2, 0.2, 1.0]
-    luzPosicao = [0.0, 10.0, 10.0, 1.0]  # Posição acima e um pouco à frente do modelo
+    luzDifusa = [0.9, 0.9, 0.9, 1.0]
+    luzAmbiente = [0.3, 0.3, 0.3, 1.0]
+    luzEspecular = [0.8, 0.8, 0.8, 1.0]
+    luzPosicao = [5.0, 10.0, 5.0, 1.0]
 
     glLightfv(GL_LIGHT0, GL_DIFFUSE, luzDifusa)
     glLightfv(GL_LIGHT0, GL_AMBIENT, luzAmbiente)
+    glLightfv(GL_LIGHT0, GL_SPECULAR, luzEspecular)
+    glLightfv(GL_LIGHT0, GL_POSITION, luzPosicao)
 
-    # Definição de material do modelo.
     matDifusa = [1.0, 1.0, 1.0, 1.0]
     matSpecular = [1.0, 1.0, 1.0, 1.0]
-    matShininess = [50.0]
+    matShininess = [64.0]
 
     glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, matDifusa)
     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, matSpecular)
     glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, matShininess)
 
-# alterna entre sólido / wireframe / pontos
+# Entrada do teclado
 def teclado(key, x, y):
-    global cameraPos
+    global cameraPos, mostrarNormais
     step = 0.3
 
     if key == b'q':
@@ -208,16 +216,16 @@ def teclado(key, x, y):
         cameraPos[1] -= step
     elif key == b'w':
         modo = glGetIntegerv(GL_POLYGON_MODE)[0]
-        if modo == GL_FILL:
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-        elif modo == GL_LINE:
-            glPolygonMode(GL_FRONT_AND_BACK, GL_POINT)
-        else:
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
+        glPolygonMode(GL_FRONT_AND_BACK,
+                      GL_LINE if modo == GL_FILL else
+                      GL_POINT if modo == GL_LINE else
+                      GL_FILL)
+    elif key == b'n':
+        mostrarNormais = not mostrarNormais
 
-def special_keys(key, x, y):
-    global cameraPos
-    global altVisao
+
+def specialKeys(key, x, y):
+    global cameraPos, altVisao
     step = 0.3
     if key == GLUT_KEY_UP:
         cameraPos[2] -= step
@@ -229,17 +237,18 @@ def special_keys(key, x, y):
         altVisao += step
     glutPostRedisplay()
 
+# Execução principal
 def main():
     if len(sys.argv) < 2:
-        print("Uso: python visualizador_obj.py modelo.obj")
+        print("Uso: python visualizadorObj.py modelo.obj")
         sys.exit(1)
 
-    caminho_obj = sys.argv[1]
-    carregar_objeto(caminho_obj)
+    caminhoObj = sys.argv[1]
+    carregarObjeto(caminhoObj)
 
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH)
-    glutInitWindowSize(window_width, window_height)
+    glutInitWindowSize(windowWidth, windowHeight)
     glutCreateWindow(b"Visualizador .OBJ [mvfm]")
 
     inicializar()
@@ -247,8 +256,9 @@ def main():
     glutIdleFunc(display)
     glutReshapeFunc(redimensionar)
     glutKeyboardFunc(teclado)
-    glutSpecialFunc(special_keys)
+    glutSpecialFunc(specialKeys)
     glutMainLoop()
+
 
 if __name__ == "__main__":
     main()
