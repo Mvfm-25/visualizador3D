@@ -208,7 +208,7 @@ def inicializar():
 # Entrada do teclado
 def teclado(key, x, y):
     global cameraPos, mostrarNormais
-    step = 0.3
+    step = 1
 
     if key == b'q':
         cameraPos[1] += step
@@ -226,7 +226,7 @@ def teclado(key, x, y):
 
 def specialKeys(key, x, y):
     global cameraPos, altVisao
-    step = 0.3
+    step = 1
     if key == GLUT_KEY_UP:
         cameraPos[2] -= step
     elif key == GLUT_KEY_DOWN:
