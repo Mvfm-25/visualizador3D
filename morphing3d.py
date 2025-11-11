@@ -1,10 +1,8 @@
-#!/usr/bin/env python3
-
-#morphing3D.py
-#[mvfm] - Morphing simples entre dois modelos .OBJ usando PyOpenGL
+# morphing3D.py
+# [mvfm] - Primeira implementação do Morpher3D
 #
-# Uso : bem como o uso do 'visualizador3D.py', mas agora se requer a especificação de dois modelos .obj
-
+# Criado : 10/11/2025  || Última vez Alterado : 11/11/2025
+#
 #Teclas:
 #    m - pausar/retomar morphing
 #    n - mostrar/ocultar normais

@@ -1,6 +1,6 @@
 # visualizador_obj_glfw.py
 # [mvfm] - Visualizador de modelos .OBJ com PyOpenGL + GLFW
-# Criado : 06/11/2025
+# Criado : 06/11/2025  ||  Última vez Alterado :  11/11/2025
 
 import glfw
 from OpenGL.GL import *
